@@ -72,7 +72,7 @@ public actor RemindersStore {
   }
 
   public func reminders(matching target: ReminderListTarget?) async throws -> [ReminderItem] {
-    await fetchReminders(in: try calendars(matching: target))
+    try await fetchReminders(in: try calendars(matching: target))
   }
 
   public func createList(name: String) async throws -> ReminderList {
@@ -219,7 +219,7 @@ extension RemindersStore {
     }
   }
 
-  private func fetchReminders(in calendars: [EKCalendar]) async -> [ReminderItem] {
+  private func fetchReminders(in calendars: [EKCalendar]) async throws -> [ReminderItem] {
     struct ReminderData: Sendable {
       let id: String
       let title: String
@@ -239,7 +239,36 @@ extension RemindersStore {
       let listName: String
     }
 
-    let reminderData = await withCheckedContinuation { (continuation: CheckedContinuation<[ReminderData], Never>) in
+    // EventKit's callback can stall indefinitely; bound the wait so list/CLI cannot hang forever.
+    let fetchTimeoutNanoseconds: UInt64 = 30_000_000_000
+    let reminderData = try await withCheckedThrowingContinuation {
+      (continuation: CheckedContinuation<[ReminderData], Error>) in
+      final class OnceResume: @unchecked Sendable {
+        private let lock = NSLock()
+        private var continuation: CheckedContinuation<[ReminderData], Error>?
+
+        init(_ continuation: CheckedContinuation<[ReminderData], Error>) {
+          self.continuation = continuation
+        }
+
+        func resume(returning value: [ReminderData]) {
+          lock.lock()
+          defer { lock.unlock() }
+          guard let continuation else { return }
+          self.continuation = nil
+          continuation.resume(returning: value)
+        }
+
+        func resume(throwing error: Error) {
+          lock.lock()
+          defer { lock.unlock() }
+          guard let continuation else { return }
+          self.continuation = nil
+          continuation.resume(throwing: error)
+        }
+      }
+
+      let once = OnceResume(continuation)
       let predicate = eventStore.predicateForReminders(in: calendars)
       eventStore.fetchReminders(matching: predicate) { reminders in
         let data = (reminders ?? []).map { reminder in
@@ -263,7 +292,15 @@ extension RemindersStore {
             listName: reminder.calendar.title
           )
         }
-        continuation.resume(returning: data)
+        once.resume(returning: data)
+      }
+      Task {
+        try await Task.sleep(nanoseconds: fetchTimeoutNanoseconds)
+        once.resume(
+          throwing: RemindCoreError.operationFailed(
+            "Timed out waiting for EventKit reminders after 30s"
+          )
+        )
       }
     }
 
