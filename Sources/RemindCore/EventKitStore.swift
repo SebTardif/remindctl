@@ -406,7 +406,15 @@ extension RemindersStore {
     if let latitude = trigger.latitude, let longitude = trigger.longitude {
       location = CLLocation(latitude: latitude, longitude: longitude)
     } else {
-      let placemarks = try await CLGeocoder().geocodeAddressString(trigger.address)
+      // CLGeocoder can stall indefinitely on bad networks; bound so add-with-location cannot hang.
+      let geocodeTimeoutNanoseconds: UInt64 = 30_000_000_000
+      let placemarks = try await AsyncTimeout.withTimeout(
+        nanoseconds: geocodeTimeoutNanoseconds,
+        timeoutMessage: "Timed out geocoding location after 30s"
+      ) {
+        // Create the geocoder inside the task so it is not captured across Sendable boundaries.
+        try await CLGeocoder().geocodeAddressString(trigger.address)
+      }
       guard let geocodedLocation = placemarks.first?.location else {
         throw RemindCoreError.operationFailed("Could not geocode location: \(trigger.address)")
       }
