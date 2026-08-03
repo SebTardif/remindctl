@@ -407,13 +407,23 @@ extension RemindersStore {
       location = CLLocation(latitude: latitude, longitude: longitude)
     } else {
       // CLGeocoder can stall indefinitely on bad networks; bound so add-with-location cannot hang.
+      // Retain the geocoder so a winning deadline can cancel the Core Location request.
       let geocodeTimeoutNanoseconds: UInt64 = 30_000_000_000
-      let placemarks = try await AsyncTimeout.withTimeout(
-        nanoseconds: geocodeTimeoutNanoseconds,
-        timeoutMessage: "Timed out geocoding location after 30s"
-      ) {
-        // Create the geocoder inside the task so it is not captured across Sendable boundaries.
-        try await CLGeocoder().geocodeAddressString(trigger.address)
+      final class GeocoderBox: @unchecked Sendable {
+        let geocoder = CLGeocoder()
+      }
+      let box = GeocoderBox()
+      let placemarks: [CLPlacemark]
+      do {
+        placemarks = try await AsyncTimeout.withTimeout(
+          nanoseconds: geocodeTimeoutNanoseconds,
+          timeoutMessage: "Timed out geocoding location after 30s"
+        ) {
+          try await box.geocoder.geocodeAddressString(trigger.address)
+        }
+      } catch {
+        box.geocoder.cancelGeocode()
+        throw error
       }
       guard let geocodedLocation = placemarks.first?.location else {
         throw RemindCoreError.operationFailed("Could not geocode location: \(trigger.address)")

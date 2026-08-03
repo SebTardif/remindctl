@@ -1,7 +1,6 @@
 # Changelog
 
 ## Unreleased
-- Bound CLGeocoder waits for location-based alarms with a 30s timeout so `add` with an address cannot hang forever. Thanks @SebTardif.
 
 ## 0.3.3 - 2026-07-09
 - Keep every alarm unchanged for due-only edits, and preserve relative and location alarms when `edit --alarm` or `edit --clear-alarm` replaces or clears absolute alarms.
