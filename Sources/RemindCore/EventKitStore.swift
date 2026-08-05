@@ -239,7 +239,10 @@ extension RemindersStore {
       let listName: String
     }
 
-    // EventKit's callback can stall indefinitely; bound the wait so list/CLI cannot hang forever.
+    // EventKit's callback can stall indefinitely. Contract: wait at most 30s for
+    // the callback. Success cancels the watchdog. If the deadline fires first,
+    // fail with operationFailed so list/CLI cannot hang forever (slow-but-valid
+    // reads that exceed 30s are intentionally treated as failure).
     let fetchTimeoutNanoseconds: UInt64 = 30_000_000_000
     let reminderData = try await withCheckedThrowingContinuation {
       (continuation: CheckedContinuation<[ReminderData], Error>) in
@@ -270,7 +273,21 @@ extension RemindersStore {
 
       let once = OnceResume(continuation)
       let predicate = eventStore.predicateForReminders(in: calendars)
+      let timeoutTask = Task {
+        do {
+          try await Task.sleep(nanoseconds: fetchTimeoutNanoseconds)
+        } catch {
+          // Cancelled when the EventKit callback wins first.
+          return
+        }
+        once.resume(
+          throwing: RemindCoreError.operationFailed(
+            "Timed out waiting for EventKit reminders after 30s"
+          )
+        )
+      }
       eventStore.fetchReminders(matching: predicate) { reminders in
+        timeoutTask.cancel()
         let data = (reminders ?? []).map { reminder in
           let components = reminder.dueDateComponents
           return ReminderData(
@@ -293,14 +310,6 @@ extension RemindersStore {
           )
         }
         once.resume(returning: data)
-      }
-      Task {
-        try await Task.sleep(nanoseconds: fetchTimeoutNanoseconds)
-        once.resume(
-          throwing: RemindCoreError.operationFailed(
-            "Timed out waiting for EventKit reminders after 30s"
-          )
-        )
       }
     }
 
