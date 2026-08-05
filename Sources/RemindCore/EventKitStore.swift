@@ -413,18 +413,13 @@ extension RemindersStore {
         let geocoder = CLGeocoder()
       }
       let box = GeocoderBox()
-      let placemarks: [CLPlacemark]
-      do {
-        placemarks = try await AsyncTimeout.withTimeout(
-          nanoseconds: geocodeTimeoutNanoseconds,
-          timeoutMessage: "Timed out geocoding location after 30s"
-        ) {
+      let placemarks = try await AsyncTimeout.withTimeout(
+        nanoseconds: geocodeTimeoutNanoseconds,
+        timeoutMessage: "Timed out geocoding location after 30s",
+        onTimeout: { box.geocoder.cancelGeocode() },
+        operation: {
           try await box.geocoder.geocodeAddressString(trigger.address)
-        }
-      } catch {
-        box.geocoder.cancelGeocode()
-        throw error
-      }
+        })
       guard let geocodedLocation = placemarks.first?.location else {
         throw RemindCoreError.operationFailed("Could not geocode location: \(trigger.address)")
       }
