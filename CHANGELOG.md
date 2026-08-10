@@ -1,7 +1,11 @@
 # Changelog
 
-## Unreleased
-- Bound EventKit reminder fetches and Core Location geocoding to 30 seconds so stalled system callbacks fail instead of hanging the CLI; thanks @SebTardif and @vincentkoc.
+## 0.3.4 - 2026-08-09
+
+**Highlight:** the CLI can no longer hang forever on an unresponsive system
+service.
+
+- Bound EventKit reminder fetches and Core Location geocoding to 30 seconds so stalled system callbacks fail with a clear error instead of hanging the CLI indefinitely. Both paths share one timeout contract, and cancellation now propagates to the underlying EventKit fetch or geocoder rather than leaving it running; thanks @SebTardif and @vincentkoc.
 
 ## 0.3.3 - 2026-07-09
 - Keep every alarm unchanged for due-only edits, and preserve relative and location alarms when `edit --alarm` or `edit --clear-alarm` replaces or clears absolute alarms.
