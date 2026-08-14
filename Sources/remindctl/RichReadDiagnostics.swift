@@ -1,4 +1,5 @@
 import Foundation
+import RemindCore
 
 struct RichReadDiagnostics: Codable, Sendable, Equatable {
   let storeDirectory: String
@@ -82,8 +83,7 @@ struct RichReadDiagnostics: Codable, Sendable, Equatable {
     let errorPipe = Pipe()
     process.standardOutput = output
     process.standardError = errorPipe
-    try process.run()
-    process.waitUntilExit()
+    try ProcessWait.run(process)
     let data = output.fileHandleForReading.readDataToEndOfFile()
     let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
     guard process.terminationStatus == 0 else {
