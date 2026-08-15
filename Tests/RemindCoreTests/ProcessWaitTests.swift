@@ -30,4 +30,20 @@ struct ProcessWaitTests {
     }
     #expect(!process.isRunning)
   }
+
+  @Test("Force-stops a process that ignores SIGTERM")
+  func timeoutForceStopsTermIgnoringProcess() throws {
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
+    process.arguments = ["-e", "$SIG{TERM}='IGNORE'; sleep 60"]
+    process.standardOutput = FileHandle.nullDevice
+    process.standardError = FileHandle.nullDevice
+    do {
+      try ProcessWait.run(process, seconds: 0.5)
+      Issue.record("expected timeout")
+    } catch let error as ProcessWait.Error {
+      #expect(error == .timedOut(0.5))
+    }
+    #expect(!process.isRunning)
+  }
 }

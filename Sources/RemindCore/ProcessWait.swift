@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 public enum ProcessWait {
@@ -22,7 +23,13 @@ public enum ProcessWait {
     try process.run()
     if semaphore.wait(timeout: .now() + seconds) == .timedOut {
       process.terminate()
-      _ = semaphore.wait(timeout: .now() + 2)
+      if semaphore.wait(timeout: .now() + 2) == .timedOut {
+        let pid = process.processIdentifier
+        if pid > 0, process.isRunning {
+          kill(pid, SIGKILL)
+        }
+        _ = semaphore.wait(timeout: .now() + 2)
+      }
       throw Error.timedOut(seconds)
     }
   }
