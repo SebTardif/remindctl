@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Bound `doctor` rich-read sqlite3 probes to 30 seconds so a stuck local database query fails with a timeout instead of hanging the CLI.
+- Bound `doctor` rich-read sqlite3 probes to 30 seconds so a stuck local database query fails with a timeout instead of hanging the CLI. Thanks @SebTardif.
 
 ## 0.3.4 - 2026-08-09
 
