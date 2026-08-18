@@ -248,7 +248,16 @@ extension RemindersStore {
       let predicate = context.eventStore.predicateForReminders(in: context.calendars)
       let identifier = context.eventStore.fetchReminders(matching: predicate) { reminders in
         guard let claim = completion.claim() else { return }
-        let data = (reminders ?? []).map { reminder in
+        let data = (reminders ?? []).compactMap { reminder -> ReminderData? in
+          let calendar: EKCalendar? = reminder.calendar
+          guard
+            let list = ReminderCalendarMapping.listIdentity(
+              calendarIdentifier: calendar?.calendarIdentifier,
+              title: calendar?.title
+            )
+          else {
+            return nil
+          }
           let components = reminder.dueDateComponents
           return ReminderData(
             id: reminder.calendarItemIdentifier,
@@ -265,8 +274,8 @@ extension RemindersStore {
             alarmDate: Self.alarmDate(from: reminder),
             recurrenceRule: Self.recurrenceRule(from: reminder),
             locationTrigger: Self.locationTrigger(from: reminder),
-            listID: reminder.calendar.calendarIdentifier,
-            listName: reminder.calendar.title
+            listID: list.id,
+            listName: list.title
           )
         }
         claim.resume(returning: data)
@@ -367,6 +376,11 @@ extension RemindersStore {
 
   private func item(from reminder: EKReminder) -> ReminderItem {
     let components = reminder.dueDateComponents
+    let calendar: EKCalendar? = reminder.calendar
+    let list = ReminderCalendarMapping.listIdentity(
+      calendarIdentifier: calendar?.calendarIdentifier,
+      title: calendar?.title
+    )
     return ReminderItem(
       id: reminder.calendarItemIdentifier,
       title: reminder.title ?? "",
@@ -382,8 +396,8 @@ extension RemindersStore {
       alarmDate: Self.alarmDate(from: reminder),
       recurrenceRule: Self.recurrenceRule(from: reminder),
       locationTrigger: Self.locationTrigger(from: reminder),
-      listID: reminder.calendar.calendarIdentifier,
-      listName: reminder.calendar.title
+      listID: list?.id ?? "",
+      listName: list?.title ?? ""
     )
   }
 
