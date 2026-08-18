@@ -220,26 +220,57 @@ extension RemindersStore {
     }
   }
 
-  private func fetchReminders(in calendars: [EKCalendar]) async throws -> [ReminderItem] {
-    struct ReminderData: Sendable {
-      let id: String
-      let title: String
-      let notes: String?
-      let url: URL?
-      let isCompleted: Bool
-      let completionDate: Date?
-      let creationDate: Date?
-      let lastModifiedDate: Date?
-      let priority: Int
-      let dueDateComponents: DateComponents?
-      let dueDateIsAllDay: Bool
-      let alarmDate: Date?
-      let recurrenceRule: RecurrenceRule?
-      let locationTrigger: LocationTrigger?
-      let listID: String
-      let listName: String
-    }
+  private struct ReminderData: Sendable {
+    let id: String
+    let title: String
+    let notes: String?
+    let url: URL?
+    let isCompleted: Bool
+    let completionDate: Date?
+    let creationDate: Date?
+    let lastModifiedDate: Date?
+    let priority: Int
+    let dueDateComponents: DateComponents?
+    let dueDateIsAllDay: Bool
+    let alarmDate: Date?
+    let recurrenceRule: RecurrenceRule?
+    let locationTrigger: LocationTrigger?
+    let listID: String
+    let listName: String
+  }
 
+  private static func reminderData(from reminder: EKReminder) -> ReminderData? {
+    let calendar: EKCalendar? = reminder.calendar
+    guard
+      let list = ReminderCalendarMapping.listIdentity(
+        calendarIdentifier: calendar?.calendarIdentifier,
+        title: calendar?.title
+      )
+    else {
+      return nil
+    }
+    let components = reminder.dueDateComponents
+    return ReminderData(
+      id: reminder.calendarItemIdentifier,
+      title: reminder.title ?? "",
+      notes: reminder.notes,
+      url: reminder.url,
+      isCompleted: reminder.isCompleted,
+      completionDate: reminder.completionDate,
+      creationDate: reminder.creationDate,
+      lastModifiedDate: reminder.lastModifiedDate,
+      priority: Int(reminder.priority),
+      dueDateComponents: components,
+      dueDateIsAllDay: isAllDay(components),
+      alarmDate: alarmDate(from: reminder),
+      recurrenceRule: recurrenceRule(from: reminder),
+      locationTrigger: locationTrigger(from: reminder),
+      listID: list.id,
+      listName: list.title
+    )
+  }
+
+  private func fetchReminders(in calendars: [EKCalendar]) async throws -> [ReminderItem] {
     let context = EventKitFetchContext(eventStore: eventStore, calendars: calendars)
     let reminderData: [ReminderData] = try await AsyncTimeout.withTimeout(
       after: Self.externalOperationTimeout,
@@ -248,37 +279,7 @@ extension RemindersStore {
       let predicate = context.eventStore.predicateForReminders(in: context.calendars)
       let identifier = context.eventStore.fetchReminders(matching: predicate) { reminders in
         guard let claim = completion.claim() else { return }
-        let data = (reminders ?? []).compactMap { reminder -> ReminderData? in
-          let calendar: EKCalendar? = reminder.calendar
-          guard
-            let list = ReminderCalendarMapping.listIdentity(
-              calendarIdentifier: calendar?.calendarIdentifier,
-              title: calendar?.title
-            )
-          else {
-            return nil
-          }
-          let components = reminder.dueDateComponents
-          return ReminderData(
-            id: reminder.calendarItemIdentifier,
-            title: reminder.title ?? "",
-            notes: reminder.notes,
-            url: reminder.url,
-            isCompleted: reminder.isCompleted,
-            completionDate: reminder.completionDate,
-            creationDate: reminder.creationDate,
-            lastModifiedDate: reminder.lastModifiedDate,
-            priority: Int(reminder.priority),
-            dueDateComponents: components,
-            dueDateIsAllDay: isAllDay(components),
-            alarmDate: Self.alarmDate(from: reminder),
-            recurrenceRule: Self.recurrenceRule(from: reminder),
-            locationTrigger: Self.locationTrigger(from: reminder),
-            listID: list.id,
-            listName: list.title
-          )
-        }
-        claim.resume(returning: data)
+        claim.resume(returning: (reminders ?? []).compactMap(Self.reminderData(from:)))
       }
       let request = EventKitFetchCancellation(eventStore: context.eventStore, identifier: identifier)
       return { request.cancel() }
