@@ -287,6 +287,8 @@ When running over SSH, grant access on the Mac that actually runs `remindctl`.
 
 ## EventKit Limits
 
+Reminder reads skip orphaned EventKit reminders whose calendar is missing; other reminders remain available.
+
 `remindctl` intentionally sticks to public EventKit APIs. These Reminders.app features are not exposed through EventKit today:
 
 - Native Reminders sections
