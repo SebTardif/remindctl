@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.5 - 2026-08-30
 
 - Skip fetched reminders with a missing calendar so orphaned rows cannot crash reminder reads. Thanks @SebTardif.
 - Update the docs workflow to Node.js 26 and `actions/setup-node@v7`, and verify the docs build in pull-request CI.
