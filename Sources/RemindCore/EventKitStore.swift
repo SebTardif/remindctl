@@ -220,7 +220,7 @@ extension RemindersStore {
     }
   }
 
-  private struct ReminderData: Sendable {
+  struct ReminderData: Sendable {
     let id: String
     let title: String
     let notes: String?
@@ -239,16 +239,9 @@ extension RemindersStore {
     let listName: String
   }
 
-  private static func reminderData(from reminder: EKReminder) -> ReminderData? {
-    let calendar: EKCalendar? = reminder.calendar
-    guard
-      let list = ReminderCalendarMapping.listIdentity(
-        calendarIdentifier: calendar?.calendarIdentifier,
-        title: calendar?.title
-      )
-    else {
-      return nil
-    }
+  static func reminderData(from reminder: EKReminder) -> ReminderData? {
+    // Skip orphaned reminders before dereferencing EventKit's calendar IUO.
+    guard let calendar = reminder.calendar else { return nil }
     let components = reminder.dueDateComponents
     return ReminderData(
       id: reminder.calendarItemIdentifier,
@@ -265,8 +258,8 @@ extension RemindersStore {
       alarmDate: alarmDate(from: reminder),
       recurrenceRule: recurrenceRule(from: reminder),
       locationTrigger: locationTrigger(from: reminder),
-      listID: list.id,
-      listName: list.title
+      listID: calendar.calendarIdentifier,
+      listName: calendar.title
     )
   }
 
@@ -377,11 +370,6 @@ extension RemindersStore {
 
   private func item(from reminder: EKReminder) -> ReminderItem {
     let components = reminder.dueDateComponents
-    let calendar: EKCalendar? = reminder.calendar
-    let list = ReminderCalendarMapping.listIdentity(
-      calendarIdentifier: calendar?.calendarIdentifier,
-      title: calendar?.title
-    )
     return ReminderItem(
       id: reminder.calendarItemIdentifier,
       title: reminder.title ?? "",
@@ -397,8 +385,8 @@ extension RemindersStore {
       alarmDate: Self.alarmDate(from: reminder),
       recurrenceRule: Self.recurrenceRule(from: reminder),
       locationTrigger: Self.locationTrigger(from: reminder),
-      listID: list?.id ?? "",
-      listName: list?.title ?? ""
+      listID: reminder.calendar.calendarIdentifier,
+      listName: reminder.calendar.title
     )
   }
 
