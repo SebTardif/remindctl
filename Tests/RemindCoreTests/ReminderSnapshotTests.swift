@@ -53,4 +53,37 @@ struct ReminderSnapshotTests {
     #expect(snapshot.alarmDate == alarmDate)
     #expect(snapshot.recurrenceRule == RecurrenceRule(frequency: .weekly, interval: 2))
   }
+
+  @Test("Mutation mapping errors instead of trapping when calendar is missing")
+  func mutationMappingErrorsOnMissingCalendar() throws {
+    let reminder = EKReminder(eventStore: EKEventStore())
+    reminder.title = "Orphan"
+    try #require(reminder.calendar == nil)
+
+    #expect(throws: RemindCoreError.operationFailed("Reminder is missing a calendar")) {
+      _ = try RemindersStore.reminderItem(from: reminder)
+    }
+  }
+
+  @Test("Mutation mapping keeps list identity for a reminder with a calendar")
+  func mutationMappingPreservesCalendar() throws {
+    let store = EKEventStore()
+    let calendar = EKCalendar(for: .reminder, eventStore: store)
+    calendar.title = "Synthetic list"
+    let reminder = EKReminder(eventStore: store)
+    reminder.calendar = calendar
+    reminder.title = "Keep me"
+    reminder.notes = "Synthetic notes"
+    reminder.priority = 5
+
+    let item = try RemindersStore.reminderItem(from: reminder)
+
+    #expect(item.id == reminder.calendarItemIdentifier)
+    #expect(item.title == "Keep me")
+    #expect(item.notes == "Synthetic notes")
+    #expect(item.priority == .medium)
+    #expect(item.listID == calendar.calendarIdentifier)
+    #expect(item.listName == "Synthetic list")
+    #expect(!item.isCompleted)
+  }
 }

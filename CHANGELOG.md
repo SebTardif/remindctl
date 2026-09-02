@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Return a calendar-missing error from add, edit, and complete instead of trapping when EventKit leaves a reminder without a calendar after save. Thanks @SebTardif.
+
 ## 0.3.5 - 2026-08-30
 
 - Skip fetched reminders with a missing calendar so orphaned rows cannot crash reminder reads. Thanks @SebTardif.
