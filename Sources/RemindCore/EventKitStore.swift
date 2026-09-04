@@ -136,7 +136,7 @@ public actor RemindersStore {
       reminder.addAlarm(try await locationAlarm(from: locationTrigger))
     }
     try eventStore.save(reminder, commit: true)
-    return item(from: reminder)
+    return try item(from: reminder)
   }
 
   public func updateReminder(id: String, update: ReminderUpdate) async throws -> ReminderItem {
@@ -182,7 +182,7 @@ public actor RemindersStore {
 
     try eventStore.save(reminder, commit: true)
 
-    return item(from: reminder)
+    return try item(from: reminder)
   }
 
   public func completeReminders(ids: [String]) async throws -> [ReminderItem] {
@@ -191,7 +191,7 @@ public actor RemindersStore {
       let reminder = try reminder(withID: id)
       reminder.isCompleted = true
       try eventStore.save(reminder, commit: true)
-      updated.append(item(from: reminder))
+      updated.append(try item(from: reminder))
     }
     return updated
   }
@@ -237,6 +237,30 @@ extension RemindersStore {
     let locationTrigger: LocationTrigger?
     let listID: String
     let listName: String
+  }
+
+  static func reminderItem(from reminder: EKReminder, calendar: Calendar = .current) throws -> ReminderItem {
+    guard let data = reminderData(from: reminder) else {
+      throw RemindCoreError.operationFailed("Reminder is missing a calendar")
+    }
+    return ReminderItem(
+      id: data.id,
+      title: data.title,
+      notes: data.notes,
+      url: data.url,
+      isCompleted: data.isCompleted,
+      completionDate: data.completionDate,
+      creationDate: data.creationDate,
+      lastModifiedDate: data.lastModifiedDate,
+      priority: ReminderPriority(eventKitValue: data.priority),
+      dueDate: data.dueDateComponents.flatMap { calendar.date(from: $0) },
+      dueDateIsAllDay: data.dueDateIsAllDay,
+      alarmDate: data.alarmDate,
+      recurrenceRule: data.recurrenceRule,
+      locationTrigger: data.locationTrigger,
+      listID: data.listID,
+      listName: data.listName
+    )
   }
 
   static func reminderData(from reminder: EKReminder) -> ReminderData? {
@@ -368,26 +392,8 @@ extension RemindersStore {
     return calendar.date(from: components)
   }
 
-  private func item(from reminder: EKReminder) -> ReminderItem {
-    let components = reminder.dueDateComponents
-    return ReminderItem(
-      id: reminder.calendarItemIdentifier,
-      title: reminder.title ?? "",
-      notes: reminder.notes,
-      url: reminder.url,
-      isCompleted: reminder.isCompleted,
-      completionDate: reminder.completionDate,
-      creationDate: reminder.creationDate,
-      lastModifiedDate: reminder.lastModifiedDate,
-      priority: ReminderPriority(eventKitValue: Int(reminder.priority)),
-      dueDate: date(from: components),
-      dueDateIsAllDay: isAllDay(components),
-      alarmDate: Self.alarmDate(from: reminder),
-      recurrenceRule: Self.recurrenceRule(from: reminder),
-      locationTrigger: Self.locationTrigger(from: reminder),
-      listID: reminder.calendar.calendarIdentifier,
-      listName: reminder.calendar.title
-    )
+  private func item(from reminder: EKReminder) throws -> ReminderItem {
+    try Self.reminderItem(from: reminder, calendar: calendar)
   }
 
   private static func alarmDate(from reminder: EKReminder) -> Date? {

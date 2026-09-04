@@ -288,6 +288,7 @@ When running over SSH, grant access on the Mac that actually runs `remindctl`.
 ## EventKit Limits
 
 Reminder reads skip orphaned EventKit reminders whose calendar is missing; other reminders remain available.
+If a calendar is missing after `add`, `edit`, or `complete` saves a reminder, the command reports `Reminder is missing a calendar` instead of crashing. The change has already been saved; check Reminders.app before retrying.
 
 `remindctl` intentionally sticks to public EventKit APIs. These Reminders.app features are not exposed through EventKit today:
 

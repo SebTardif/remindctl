@@ -69,6 +69,8 @@ remindctl edit 4A83 --no-repeat
 
 `edit`, `complete`, and `delete` accept indexes from the current default listing or ID prefixes.
 
+If `add`, `edit`, or `complete` reports `Reminder is missing a calendar`, EventKit saved the reminder but returned it without its list. Check Reminders.app before retrying; this error does not roll back the saved change.
+
 Changing or clearing only the due date leaves every alarm unchanged. Explicit alarm edits preserve relative and location-based alarms while replacing or clearing absolute alarms.
 
 ## Lists
