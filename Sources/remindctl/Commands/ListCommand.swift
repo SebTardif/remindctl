@@ -104,14 +104,27 @@ enum ListCommand {
           guard let name else {
             throw ParsedValuesError.missingArgument("name")
           }
-          let list = try await store.createList(name: name)
+          let existing = try existingListForCreate(name: name, lists: await store.lists())
+          let list: ReminderList
+          let created: Bool
+          if let existing {
+            list = existing
+            created = false
+          } else {
+            list = try await store.createList(name: name)
+            created = true
+          }
           if runtime.outputFormat == .json {
             OutputRenderer.printLists(
               [ListSummary(id: list.id, title: list.title, reminderCount: 0, overdueCount: 0)],
               format: runtime.outputFormat
             )
           } else if runtime.outputFormat == .standard {
-            Swift.print("Created list \"\(list.title)\"")
+            if created {
+              Swift.print("Created list \"\(list.title)\"")
+            } else {
+              Swift.print("List \"\(list.title)\" already exists")
+            }
           }
           return
         }
@@ -148,6 +161,17 @@ enum ListCommand {
       }
 
       OutputRenderer.printLists(summaries, format: runtime.outputFormat)
+    }
+  }
+
+  static func existingListForCreate(name: String, lists: [ReminderList]) throws -> ReminderList? {
+    do {
+      return try ListResolver.resolve(name, in: lists)
+    } catch let error as RemindCoreError {
+      guard case .listNotFound = error else {
+        throw error
+      }
+      return nil
     }
   }
 
