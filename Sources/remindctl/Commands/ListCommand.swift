@@ -115,8 +115,9 @@ enum ListCommand {
             created = true
           }
           if runtime.outputFormat == .json {
+            let reminders = created ? [] : try await store.reminders(matching: .id(list.id))
             OutputRenderer.printLists(
-              [ListSummary(id: list.id, title: list.title, reminderCount: 0, overdueCount: 0)],
+              summaries(for: [list], reminders: reminders),
               format: runtime.outputFormat
             )
           } else if runtime.outputFormat == .standard {
@@ -142,25 +143,32 @@ enum ListCommand {
       let lists = await store.lists()
       let reminders = try await store.reminders(in: nil)
 
-      let startOfToday = Calendar.current.startOfDay(for: Date())
-      var counts: [String: (total: Int, overdue: Int)] = [:]
-      for reminder in reminders where !reminder.isCompleted {
-        let entry = counts[reminder.listID] ?? (0, 0)
-        let overdue = (reminder.dueDate.map { $0 < startOfToday } ?? false) ? 1 : 0
-        counts[reminder.listID] = (entry.total + 1, entry.overdue + overdue)
-      }
+      OutputRenderer.printLists(summaries(for: lists, reminders: reminders), format: runtime.outputFormat)
+    }
+  }
 
-      let summaries = lists.map { list in
-        let entry = counts[list.id] ?? (0, 0)
-        return ListSummary(
-          id: list.id,
-          title: list.title,
-          reminderCount: entry.total,
-          overdueCount: entry.overdue
-        )
-      }
+  static func summaries(
+    for lists: [ReminderList],
+    reminders: [ReminderItem],
+    now: Date = Date(),
+    calendar: Calendar = .current
+  ) -> [ListSummary] {
+    let startOfToday = calendar.startOfDay(for: now)
+    var counts: [String: (total: Int, overdue: Int)] = [:]
+    for reminder in reminders where !reminder.isCompleted {
+      let entry = counts[reminder.listID] ?? (0, 0)
+      let overdue = (reminder.dueDate.map { $0 < startOfToday } ?? false) ? 1 : 0
+      counts[reminder.listID] = (entry.total + 1, entry.overdue + overdue)
+    }
 
-      OutputRenderer.printLists(summaries, format: runtime.outputFormat)
+    return lists.map { list in
+      let entry = counts[list.id] ?? (0, 0)
+      return ListSummary(
+        id: list.id,
+        title: list.title,
+        reminderCount: entry.total,
+        overdueCount: entry.overdue
+      )
     }
   }
 
