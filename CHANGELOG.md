@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- Keep `show week` half-open so a date-only reminder due on the first day of next week is not listed this week. Thanks @SebTardif.
 - Return a calendar-missing error from add, edit, and complete instead of trapping when EventKit leaves a reminder without a calendar after save. Thanks @SebTardif.
+- Exclude reminders due at the start of next week from `week` and `show week` listings. Thanks @SebTardif.
 
 ## 0.3.5 - 2026-08-30
 
