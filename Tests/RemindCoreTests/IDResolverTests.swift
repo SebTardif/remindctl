@@ -38,6 +38,16 @@ struct IDResolverTests {
     #expect(resolved.first?.title == "First")
   }
 
+  @Test("Duplicate ids resolve once before a delete prompt")
+  func duplicateIDsResolveOnce() throws {
+    let repeated = try IDResolver.resolve(["1", "1"], from: sampleReminders())
+    #expect(repeated.map(\.id) == ["abcd1234"])
+    let mixed = try IDResolver.resolve(["1", "abcd"], from: sampleReminders())
+    #expect(mixed.map(\.id) == ["abcd1234"])
+    let distinct = try IDResolver.resolve(["2", "1"], from: sampleReminders())
+    #expect(distinct.map(\.id) == ["abce5678", "abcd1234"])
+  }
+
   @Test("Resolve numeric indexes from filtered show output")
   func resolveIndexFromFilteredShowOutput() throws {
     let all = sampleReminders()
