@@ -38,14 +38,37 @@ struct IDResolverTests {
     #expect(resolved.first?.title == "First")
   }
 
-  @Test("Duplicate ids resolve once before a delete prompt")
-  func duplicateIDsResolveOnce() throws {
-    let repeated = try IDResolver.resolve(["1", "1"], from: sampleReminders())
-    #expect(repeated.map(\.id) == ["abcd1234"])
-    let mixed = try IDResolver.resolve(["1", "abcd"], from: sampleReminders())
-    #expect(mixed.map(\.id) == ["abcd1234"])
-    let distinct = try IDResolver.resolve(["2", "1"], from: sampleReminders())
-    #expect(distinct.map(\.id) == ["abce5678", "abcd1234"])
+  @Test(
+    "Repeated identifiers resolve each reminder once",
+    arguments: [
+      ["1", "1"],
+      ["abcd1234", "abcd1234"],
+      ["1", "abcd", " ABCD1234 "],
+      ["abcd", "1"],
+    ])
+  func duplicateIDsResolveOnce(_ inputs: [String]) throws {
+    let resolved = try IDResolver.resolve(inputs, from: sampleReminders())
+    #expect(resolved.map(\.id) == ["abcd1234"])
+  }
+
+  @Test("Deduplication preserves first occurrence order")
+  func duplicateIDsPreserveInputOrder() throws {
+    let resolved = try IDResolver.resolve(["2", "1", "abce", "abcd"], from: sampleReminders())
+    #expect(resolved.map(\.id) == ["abce5678", "abcd1234"])
+  }
+
+  @Test("Deduplication uses reminder identity across filtered numeric indexes")
+  func duplicateIDsFromFilteredShowOutput() throws {
+    let all = sampleReminders()
+    let resolved = try IDResolver.resolve(["1", "abce5678", "abcd", "1"], from: all, numericFrom: [all[1]])
+    #expect(resolved.map(\.id) == ["abce5678", "abcd1234"])
+  }
+
+  @Test("Duplicate targets do not hide invalid subsequent identifiers")
+  func duplicateIDsStillValidateEveryInput() {
+    #expect(throws: RemindCoreError.reminderNotFound("missing")) {
+      _ = try IDResolver.resolve(["1", "1", "missing"], from: sampleReminders())
+    }
   }
 
   @Test("Resolve numeric indexes from filtered show output")
